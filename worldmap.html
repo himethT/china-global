@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>China to Global — World Investment Map</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#021628;color:#fff;font-family:'Inter',sans-serif;min-height:100vh}
+  #app{max-width:1400px;margin:0 auto;padding:32px 20px}
+  .section-label{color:#48cae4;font-weight:600;font-size:11px;letter-spacing:2px;text-transform:uppercase;text-align:center;margin-bottom:10px}
+  .section-title{font-family:'Playfair Display',serif;font-size:36px;font-weight:700;text-align:center;color:#fff;margin-bottom:10px}
+  .section-sub{font-size:14px;color:rgba(255,255,255,.5);text-align:center;margin-bottom:32px;line-height:1.7;max-width:600px;margin-left:auto;margin-right:auto}
+  #map-wrap{display:flex;gap:24px;align-items:flex-start}
+  #globe-container{flex:0 0 65%;position:relative}
+  #globe-container svg{width:100%;display:block;cursor:grab;border-radius:16px;filter:drop-shadow(0 0 40px rgba(0,150,199,.2))}
+  #globe-container svg:active{cursor:grabbing}
+  .graticule{fill:none;stroke:rgba(72,202,228,.08);stroke-width:.5}
+  .sphere{fill:url(#oceanGrad)}
+  .country{stroke:rgba(72,202,228,.25);stroke-width:.4;cursor:pointer;transition:opacity .15s}
+  .country:hover{stroke:#48cae4;stroke-width:1.2;opacity:.85}
+  .country.active{stroke:#48cae4;stroke-width:1.5;filter:drop-shadow(0 0 6px rgba(72,202,228,.7))}
+  .graticule-line{fill:none;stroke:rgba(72,202,228,.06);stroke-width:.4}
+  #panel{flex:1;min-height:500px}
+  #country-detail{background:rgba(0,150,199,.07);border:1px solid rgba(72,202,228,.28);border-radius:16px;padding:22px;min-height:480px}
+  #empty-state{background:rgba(255,255,255,.03);border:1px dashed rgba(72,202,228,.2);border-radius:16px;padding:28px;min-height:480px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+  .continent-badge{display:inline-block;padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;font-family:'Inter',sans-serif;margin-bottom:12px;letter-spacing:.5px}
+  .offers-list,.invest-list{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:16px}
+  .tag{border-radius:20px;padding:4px 10px;font-size:11px;font-family:'Inter',sans-serif;font-weight:500;display:inline-block}
+  .tag-blue{background:rgba(72,202,228,.08);border:1px solid rgba(72,202,228,.18);color:#90e0ef}
+  .tag-gold{background:rgba(232,200,112,.08);border:1px solid rgba(232,200,112,.2);color:#e8c870}
+  .section-label-sm{color:#48cae4;font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;font-family:'Inter',sans-serif;margin-bottom:8px}
+  .section-label-gold{color:#e8c870;font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;font-family:'Inter',sans-serif;margin-bottom:8px}
+  .btn-ai{background:linear-gradient(135deg,#0096c7,#48cae4);color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;width:100%;margin-top:12px;transition:all .2s}
+  .btn-ai:hover{box-shadow:0 6px 20px rgba(72,202,228,.35);transform:translateY(-1px)}
+  #search-box{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(72,202,228,.2);border-radius:8px;padding:9px 13px;color:white;font-size:12px;outline:none;font-family:'Inter',sans-serif;margin-bottom:10px}
+  #search-box::placeholder{color:rgba(255,255,255,.35)}
+  #country-list{display:flex;flex-wrap:wrap;gap:5px;max-height:120px;overflow-y:auto;margin-bottom:16px}
+  .country-chip{background:rgba(255,255,255,.04);border:1px solid rgba(72,202,228,.12);border-radius:5px;padding:4px 9px;font-size:10px;font-family:'Inter',sans-serif;color:rgba(255,255,255,.65);cursor:pointer;transition:all .15s;white-space:nowrap}
+  .country-chip:hover,.country-chip.active{background:rgba(72,202,228,.15);border-color:#48cae4;color:#48cae4}
+  #tooltip{position:fixed;background:rgba(2,22,40,.95);border:1px solid rgba(72,202,228,.4);border-radius:8px;padding:8px 12px;font-size:11px;font-family:'Inter',sans-serif;pointer-events:none;z-index:1000;display:none;color:white;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  .proj-btns{display:flex;gap:8px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+  .proj-btn{background:rgba(255,255,255,.06);border:1px solid rgba(72,202,228,.2);color:rgba(255,255,255,.7);padding:6px 14px;border-radius:6px;font-size:11px;font-family:'Inter',sans-serif;cursor:pointer;transition:all .2s}
+  .proj-btn:hover,.proj-btn.active{background:rgba(72,202,228,.15);border-color:#48cae4;color:#48cae4}
+  #rotate-hint{text-align:center;color:rgba(255,255,255,.3);font-size:11px;margin-top:6px;font-family:'Inter',sans-serif}
+  ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(72,202,228,.3);border-radius:2px}
+  @media(max-width:900px){#map-wrap{flex-direction:column}#globe-container{flex:none;width:100%}#panel{width:100%}}
+</style>
+</head>
+<body>
+<div id="app">
+  <p class="section-label">GLOBAL RESEARCH MAP</p>
+  <h2 class="section-title">World Investment Map</h2>
+  <p class="section-sub">Click any country to discover investment opportunities. Drag to rotate. Researched data covering major economies worldwide.</p>
+
+  <div class="proj-btns">
+    <button class="proj-btn active" onclick="setProjection('orthographic')">🌐 Globe</button>
+    <button class="proj-btn" onclick="setProjection('naturalEarth')">🗺️ Flat Map</button>
+    <button class="proj-btn" onclick="setProjection('mercator')">📍 Mercator</button>
+  </div>
+
+  <div id="map-wrap">
+    <div id="globe-container">
+      <svg id="map-svg"></svg>
+      <div id="rotate-hint">🖱 Drag to rotate globe · Click any country to explore</div>
+    </div>
+    <div id="panel">
+      <input id="search-box" placeholder="🔍 Search country..." oninput="filterCountries(this.value)"/>
+      <div id="country-list"></div>
+      <div id="country-detail" style="display:none"></div>
+      <div id="empty-state">
+        <div style="font-size:52px;margin-bottom:16px">🌍</div>
+        <p style="color:rgba(255,255,255,.4);font-size:14px;line-height:1.8">Click any country on the map<br>or search above to explore<br>investment opportunities</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="tooltip"></div>
+
+<script>
+const COUNTRY_DATA = {
+  "Singapore":{continent:"Southeast Asia",flag:"🇸🇬",color:"#0288d1",iso:"SGP",offers:["Financial hub & global banking","0% dividend & cap gains tax","World's best logistics port","AAA-rated sovereign credit","Strong IP protection regime","Free trade agreements (80+ countries)","English-speaking professionals","Ease of doing business #1 globally","Double tax treaties with 80+ nations","Fastest company setup (1 day)"],invest:["EV charging & clean energy","Fintech & digital banking","Data centres & cloud computing","Biomedical R&D & pharma","Regional HQ establishment","PropTech & smart real estate","EdTech platforms","Cybersecurity solutions"]},
+  "Vietnam":{continent:"Southeast Asia",flag:"🇻🇳",color:"#c62828",iso:"VNM",offers:["Low-cost manufacturing hub","Young workforce (97M population)","Rapidly rising middle class","Strategic coastal location","Strong FDI incentive packages","US-Vietnam growing trade ties","Growing electronics export base","Stable political environment","Competitive labour costs","Growing domestic consumption"],invest:["Solar panel & electronics factories","Textile & garment manufacturing","Industrial park development","Consumer electronics assembly","Food processing & export","Logistics & warehousing","EV components manufacturing","Digital commerce platforms"]},
+  "Malaysia":{continent:"Southeast Asia",flag:"🇲🇾",color:"#1565c0",iso:"MYS",offers:["Multilingual skilled workforce","Strong semiconductor industry","Islamic finance global hub","Strategic Strait of Malacca","Digital economy blueprint","English-speaking professionals","Palm oil & commodity hub","ASEAN trade connectivity","Growing tech ecosystem","Competitive tax regime"],invest:["Semiconductor & chip manufacturing","Solar panel production","EV battery components","Data centre parks","Halal food processing","Petrochemical & chemical plants","Digital banking","Tourism & hospitality"]},
+  "Thailand":{continent:"Southeast Asia",flag:"🇹🇭",color:"#e53935",iso:"THA",offers:["EV hub with major incentives","Eastern Economic Corridor (EEC)","Gateway to CLMV markets","Established automotive base","BOI investment promotion","Agricultural commodity hub","Strong tourism economy","Skilled technical workforce","Tax holidays for investors","Strategic Gulf of Thailand access"],invest:["EV manufacturing plants","Auto parts supply chain","Solar energy farms","Smart city development","Food processing & export","Medical tourism infrastructure","Data centres","Chemicals & plastics"]},
+  "Indonesia":{continent:"Southeast Asia",flag:"🇮🇩",color:"#43a047",iso:"IDN",offers:["World's 4th largest population (270M)","World's largest nickel reserves","Growing middle class consumers","Digital economy booming","Largest ASEAN economy","Rich natural resource wealth","Young demographic dividend","Vast archipelago market","Renewable energy potential","BRICS+ observer status"],invest:["Nickel processing & EV battery","Digital banking & fintech","E-commerce logistics","Palm oil downstream","EV supply chain","Mining equipment & tech","Consumer goods manufacturing","Smart city projects"]},
+  "Philippines":{continent:"Southeast Asia",flag:"🇵🇭",color:"#6a1b9a",iso:"PHL",offers:["English-speaking workforce","BPO & outsourcing hub #1","Young population (115M)","Copper & mineral resources","US cultural affinity","Growing consumer market","Remittance-driven economy","IT & digital sector growth","Large island archipelago","Strong healthcare sector"],invest:["BPO & service centres","Copper & mineral extraction","Renewable energy","Consumer electronics retail","Real estate development","Tourism infrastructure","Digital payments","Agricultural technology"]},
+  "Germany":{continent:"Europe",flag:"🇩🇪",color:"#37474f",iso:"DEU",offers:["World's 3rd largest economy","Engineering & manufacturing excellence","EU single market (450M consumers)","World-class R&D infrastructure","Strong IP & patent protection","Automotive industry leadership","Chemical & pharma sector","Stable AAA-rated economy","Double tax treaty with China","Highly skilled workforce"],invest:["EV gigafactories","Battery R&D centres","Chemical industry JVs","Machinery & automation","Green hydrogen projects","5G & telecom infrastructure","Solar energy systems","Logistics & distribution hubs"]},
+  "Hungary":{continent:"Europe",flag:"🇭🇺",color:"#bf360c",iso:"HUN",offers:["Lowest corporate tax in EU (9%)","Full EU single market access","Strategic Central Europe location","Labour cost advantage","Established automotive supply chain","Strong EV investment incentives","Chinese-friendly investment policy","Skilled workforce","BYD & CATL already established","Strong logistics network"],invest:["EV battery gigafactories","Auto parts manufacturing","Solar panel distribution","Chemical industry","Real estate development","IT & software services","Food processing","Logistics & distribution centres"]},
+  "Netherlands":{continent:"Europe",flag:"🇳🇱",color:"#e65100",iso:"NLD",offers:["Port of Rotterdam (Europe's largest)","Tax-efficient holding structures","English-speaking business hub","European distribution centre","ASML semiconductor dominance","World-class digital infrastructure","Amsterdam financial centre","Innovation & startup ecosystem","Gateway to European consumers","Strong rule of law"],invest:["Logistics & distribution hubs","Semiconductor partnerships","Data centre investment","Green port development","AgriTech innovation","Fintech & payment systems","Clean energy projects","E-commerce fulfilment"]},
+  "France":{continent:"Europe",flag:"🇫🇷",color:"#1565c0",iso:"FRA",offers:["EU's 2nd largest economy","Luxury & fashion capital of world","Nuclear energy expertise","Strong aerospace sector","Leading R&D investment","Tourism (90M visitors/year)","Strong Africa connections","Wine & food global brand","Paris financial centre","World-class universities"],invest:["Luxury brand partnerships","Battery R&D investment","Nuclear technology export","Aerospace components","Fashion retail expansion","Tourism development","Agricultural imports","EV charging networks"]},
+  "UK":{continent:"Europe",flag:"🇬🇧",color:"#1a237e",iso:"GBR",offers:["London — global financial capital","English common law system","World-class universities (Oxford, Cambridge)","Leading fintech ecosystem","Creative & cultural industries","Pharmaceutical R&D leadership","Post-Brexit trade flexibility","Time zone between Asia & Americas","Strong IP & legal protection","Large Chinese community"],invest:["Fintech & digital banking","EV manufacturing (Geely/Lotus)","Real estate & commercial property","University research partnerships","Clean energy projects","Healthcare technology","Media & entertainment","Luxury retail & brand"]},
+  "Spain":{continent:"Europe",flag:"🇪🇸",color:"#c62828",iso:"ESP",offers:["4th largest EU economy","Gateway to Latin America","Tourism (83M visitors)","Renewable energy leader","Young tech talent","Strong agriculture sector","Strategic Mediterranean location","Growing startup ecosystem","Affordable business costs","EU market access"],invest:["Solar & wind energy","Tourism infrastructure","Agricultural exports","Real estate","EV supply chain","Fintech","Renewable energy projects","Food & beverage"]},
+  "Italy":{continent:"Europe",flag:"🇮🇹",color:"#2e7d32",iso:"ITA",offers:["Luxury & fashion powerhouse","World heritage & tourism","Strong manufacturing (Made in Italy)","Food & wine global brand","Machinery & automation","Design & creative industries","Strategic Mediterranean hub","EU market access","Artisan manufacturing","Automotive industry"],invest:["Luxury goods partnerships","Tourism development","Machinery & automation","Fashion retail","Solar energy","Real estate","Food processing","EV components"]},
+  "Poland":{continent:"Europe",flag:"🇵🇱",color:"#b71c1c",iso:"POL",offers:["Largest Central European economy","EU member with full market access","Low costs vs Western Europe","Skilled IT & engineering workforce","Strategic location between East & West","Strong manufacturing base","Growing FDI destination","Stable growth economy","NATO member","Large domestic market (38M)"],invest:["Manufacturing & assembly","IT services & outsourcing","EV components supply chain","Logistics & warehousing","Real estate development","Food processing","Renewable energy","Consumer goods"]},
+  "South Africa":{continent:"Africa",flag:"🇿🇦",color:"#006064",iso:"ZAF",offers:["Africa's most industrialised economy","Platinum & chromium world leader","Financial services hub for Africa","English-speaking business culture","Gateway to sub-Saharan Africa","Mining technology expertise","Wine & agriculture exports","Developed legal framework","BRICS founding member","Strong banking sector"],invest:["Mining equipment & technology","Solar & renewable energy","Automotive assembly","Financial technology","Retail expansion","Agriculture machinery","Tourism development","Infrastructure construction"]},
+  "Nigeria":{continent:"Africa",flag:"🇳🇬",color:"#1b5e20",iso:"NGA",offers:["Africa's largest economy (GDP)","Largest population in Africa (220M)","Significant oil & gas reserves","Young digital-first population","Booming fintech ecosystem","Nollywood entertainment hub","Agricultural potential","Strategic West Africa location","Large consumer market","Growing middle class"],invest:["Oil & gas technology","Fintech & digital payments","Telecom infrastructure","Consumer electronics","Food processing","Solar energy","Construction materials","E-commerce platforms"]},
+  "Ethiopia":{continent:"Africa",flag:"🇪🇹",color:"#e65100",iso:"ETH",offers:["Africa's 2nd largest population (120M)","Low labour costs","African Union HQ location","Chinese investment-friendly","Growing manufacturing sector","Hydropower electricity surplus","Duty-free US/EU access (AGOA)","Strategic Horn of Africa","Textile industry growth","Large arable land"],invest:["Textile & garment factories","Agricultural processing","Industrial park development","Renewable energy","Logistics infrastructure","Consumer goods","Healthcare products","Construction projects"]},
+  "Kenya":{continent:"Africa",flag:"🇰🇪",color:"#880e4f",iso:"KEN",offers:["East Africa's economic hub","Nairobi — Africa's Silicon Savannah","M-Pesa mobile money pioneer","Growing tech & startup ecosystem","English-speaking business","Agriculture & floriculture","Safari & tourism economy","SGR railway infrastructure","Port of Mombasa gateway","East Africa market access"],invest:["Mobile money & fintech","Solar energy projects","Railway freight & logistics","Agricultural technology","Tourism infrastructure","Consumer goods distribution","Telecom networks","Real estate development"]},
+  "Egypt":{continent:"Africa",flag:"🇪🇬",color:"#f57f17",iso:"EGY",offers:["Africa's 2nd largest economy","Suez Canal — global trade route","100M population consumer market","Strategic Med-Africa location","Manufacturing cost advantages","Tourism (Pyramids, Red Sea)","Gas discovery & energy","Young workforce","New administrative capital","Arab world connection"],invest:["Suez Canal zone investment","Manufacturing & industry","Tourism development","Solar energy","Real estate","Consumer goods","Agricultural technology","Infrastructure projects"]},
+  "UAE":{continent:"Middle East",flag:"🇦🇪",color:"#006064",iso:"ARE",offers:["0% corporate tax in free zones","DP World — logistics giant","Dubai DIFC financial centre","Golden visa programme","Luxury & premium market","Large Chinese business community","Expo City Dubai legacy","Solar energy pioneer (Masdar)","Strategic East-West hub","Gateway to MENA & Africa"],invest:["Free zone company setup","Luxury real estate","Renewable energy (solar)","Logistics & port operations","Financial services","Tourism & hospitality","Smart city technology","E-commerce & distribution"]},
+  "Saudi Arabia":{continent:"Middle East",flag:"🇸🇦",color:"#1b5e20",iso:"SAU",offers:["NEOM mega-city ($500B project)","Vision 2030 diversification","World's top oil producer","Largest Middle East economy","PIF sovereign wealth fund","Young population (35M)","Zero personal income tax","Islamic finance hub","Religious tourism (Mecca, Medina)","Strategic Red Sea location"],invest:["NEOM smart city construction","Solar & renewable energy","Desalination technology","EV & clean transport","Retail & entertainment","Healthcare expansion","Tourism development","Mining & minerals"]},
+  "Qatar":{continent:"Middle East",flag:"🇶🇦",color:"#4a148c",iso:"QAT",offers:["World's highest GDP per capita","World's largest LNG exporter","Qatar Investment Authority (QIA)","World Cup infrastructure","Zero personal income tax","Chinese-friendly investment","Stable Gulf governance","Education City universities","Financial services growth","Strategic Gulf position"],invest:["LNG & energy partnerships","Construction & infrastructure","Tourism infrastructure","Financial services","Smart city technology","Education & EdTech","Retail expansion","Logistics hubs"]},
+  "Israel":{continent:"Middle East",flag:"🇮🇱",color:"#1565c0",iso:"ISR",offers:["'Startup Nation' — highest VC density","Agritech & watertech world leader","Cybersecurity global centre","Strong R&D investment (4.9% GDP)","Military tech spin-offs","Drip irrigation innovation","Strong IP protection","Quality tech workforce","US & EU market ties","Strong university ecosystem"],invest:["Agritech partnerships","Cybersecurity solutions","Medical technology","Water technology","Tech R&D collaboration","Defence technology","Startup investment","Drip irrigation export"]},
+  "USA":{continent:"North America",flag:"🇺🇸",color:"#1a237e",iso:"USA",offers:["World's largest consumer market ($25T GDP)","Technology innovation leader (Silicon Valley)","NYSE/NASDAQ capital markets","World-class universities (50+ top 100)","Venture capital ecosystem dominance","US dollar reserve currency","Largest Chinese diaspora outside Asia","Open innovation culture","Strong IP protection","Cultural influence worldwide"],invest:["Technology R&D centres","Solar & clean energy","University research partnerships","E-commerce & retail","Real estate investment","Software & SaaS market","Agriculture technology","Advanced manufacturing"]},
+  "Canada":{continent:"North America",flag:"🇨🇦",color:"#b71c1c",iso:"CAN",offers:["Stable AAA economy","Abundant natural resources","Multicultural tech talent","US border trade access","Strong mining & energy sector","World-class universities","Clean immigration pathways","Clean energy potential","Forestry & agriculture","Investor-friendly regulations"],invest:["Lithium & critical minerals","Clean energy projects","Real estate investment","Forestry & agriculture","Tech R&D centres","Mining equipment","Oil sands technology","EdTech & education"]},
+  "Mexico":{continent:"North America",flag:"🇲🇽",color:"#1b5e20",iso:"MEX",offers:["USMCA — free access to US & Canada","Nearshoring manufacturing boom","Low manufacturing costs","130M skilled workforce","Established automotive base","Chinese gateway to North America","Rich mining & mineral resources","Maquiladora industrial zones","Growing consumer market","Strategic Gulf location"],invest:["EV manufacturing plants","Auto parts & assembly","Solar energy projects","Industrial park development","Consumer goods manufacturing","Mining equipment","Logistics & distribution","Food processing & export"]},
+  "Brazil":{continent:"South America",flag:"🇧🇷",color:"#1b5e20",iso:"BRA",offers:["Latin America's largest economy","Iron ore global leader","Lithium & EV minerals","215M population market","Amazon biosphere resources","70% renewable electricity","BRICS founding member","Soybean & beef world leader","Growing tech sector","Portuguese-speaking hub"],invest:["Iron ore & mining","EV battery minerals","Soybean & beef trade","Solar energy projects","Agricultural technology","Consumer electronics","E-commerce platforms","Infrastructure construction"]},
+  "Chile":{continent:"South America",flag:"🇨🇱",color:"#1565c0",iso:"CHL",offers:["World's largest copper reserves","Lithium triangle (EV batteries)","60+ free trade agreements","Atacama Desert solar potential","Stable open economy","OECD member status","Salmon & seafood exports","Strong rule of law","Financial hub for South America","High quality of life"],invest:["Copper mining partnerships","Lithium extraction & processing","Solar energy (Atacama)","Wind energy development","Salmon & seafood trade","Mining technology export","Water treatment technology","Agricultural exports"]},
+  "Argentina":{continent:"South America",flag:"🇦🇷",color:"#0277bd",iso:"ARG",offers:["Vaca Muerta shale oil & gas","World's 2nd largest lithium reserves","Agricultural powerhouse","Beef & wine exports","Tech talent & startup scene","Growing lithium mining","University-educated workforce","Large consumer market (46M)","Cultural influence","Patagonia energy potential"],invest:["Lithium mining & processing","Oil & gas (Vaca Muerta)","Agricultural technology","Wine & beef trade","Renewable energy","Real estate (Buenos Aires)","Tech & software services","Mining equipment"]},
+  "India":{continent:"South Asia",flag:"🇮🇳",color:"#e65100",iso:"IND",offers:["World's most populous (1.4B)","Fastest growing major economy (7%+)","IT & software services world leader","Young skilled English workforce","Growing middle class (400M+)","Pharmaceutical 'pharmacy of world'","Space technology programme","Large diaspora network globally","Democratic governance & rule of law","Smartphone market growth"],invest:["Manufacturing diversification","Pharmaceutical partnerships","IT & software services","Consumer electronics retail","Solar energy projects","EV market entry","E-commerce expansion","Infrastructure & smart cities"]},
+  "Pakistan":{continent:"South Asia",flag:"🇵🇰",color:"#1b5e20",iso:"PAK",offers:["CPEC investment corridor","220M young population","Mineral resources","Textile manufacturing base","Agricultural sector","Growing tech scene","Gwadar port development","Strategic location","China-Pakistan relations","Cotton & textile exports"],invest:["CPEC infrastructure","Textile factories","Solar energy","Agricultural processing","Gwadar port investment","Consumer goods","IT services","Mining & minerals"]},
+  "Australia":{continent:"Australia & Pacific",flag:"🇦🇺",color:"#bf360c",iso:"AUS",offers:["Iron ore & lithium world leader","Agricultural powerhouse (beef, wool, wheat)","LNG energy exports","English-speaking stable AAA economy","High-income consumer market","World-class universities","Mining technology expertise","Clean energy transition leader","ChAFTA free trade with China","Tourism & education market"],invest:["Iron ore & lithium mining","Agricultural imports & processing","LNG & energy trade","Real estate investment","Education & student services","Clean energy projects","Wine & food imports","Tourism & hospitality development"]},
+  "New Zealand":{continent:"Australia & Pacific",flag:"🇳🇿",color:"#006064",iso:"NZL",offers:["Premium agricultural products","Globally trusted clean & green brand","Dairy & meat export leader","Wine & seafood excellence","FTA with China","High quality of life","Innovation & tech ecosystem","Education hub","Adventure tourism","Stable governance"],invest:["Dairy & agricultural imports","Wine & food trade","Tourism development","Real estate","Education services","Tech partnerships","Renewable energy","Seafood supply chain"]},
+  "Japan":{continent:"East Asia",flag:"🇯🇵",color:"#c62828",iso:"JPN",offers:["World's 3rd largest economy","Technology & robotics leader","Quality manufacturing brand","Ageing population opportunities","Strong IP protection","Precision engineering expertise","Cultural soft power","Major financial market","Tourism resurgence","Semiconductor supply chain"],invest:["Robotics & automation","Technology partnerships","Tourism development","Real estate","Consumer electronics","Healthcare technology","Precision manufacturing","Cultural content"]},
+  "South Korea":{continent:"East Asia",flag:"🇰🇷",color:"#1565c0",iso:"KOR",offers:["K-pop & cultural wave","Semiconductor powerhouse (Samsung, SK)","Shipbuilding world leader","EV & battery manufacturing","Strong innovation ecosystem","OECD high-income economy","Advanced manufacturing","Digital infrastructure","Automotive industry","Tech R&D investment"],invest:["Semiconductor partnerships","EV battery technology","Entertainment & content","Shipbuilding collaboration","Consumer electronics","Automotive components","Technology R&D","Gaming & digital media"]},
+  "Russia":{continent:"Europe",flag:"🇷🇺",color:"#37474f",iso:"RUS",offers:["World's largest country (land)","Major oil & gas exporter","Rich mineral resources","Wheat & agricultural exports","BRICS member","Science & engineering talent","Arctic resources","Nuclear technology","Military-industrial complex","Vast timber resources"],invest:["Energy & natural gas","Agricultural trade","Mineral resources","Timber & forestry","Science & technology","Arctic development","Manufacturing partnerships","Chemical industry"]},
+  "Kazakhstan":{continent:"Central Asia",flag:"🇰🇿",color:"#f57f17",iso:"KAZ",offers:["BRI Belt & Road key node","Vast mineral wealth","Uranium world leader","Oil & gas reserves","Strategic Eurasia location","Chinese-friendly policy","Growing economy","Modernising infrastructure","Central Asia hub","Agricultural land"],invest:["Oil & gas partnerships","Uranium mining","Mineral extraction","Infrastructure (BRI)","Agricultural processing","Logistics corridors","Manufacturing zones","Energy projects"]},
+  "Sri Lanka":{continent:"South Asia",flag:"🇱🇰",color:"#880e4f",iso:"LKA",offers:["Hambantota port (Chinese-built)","Strategic Indian Ocean location","Tea & spice exports","Tourism potential","Gem industry","Skilled English workforce","Textile manufacturing","BRI connected nation","Growing economy","Cultural heritage tourism"],invest:["Port & logistics","Tourism development","Textile factories","Tea & agriculture","Real estate","Renewable energy","IT services","Infrastructure projects"]},
+  "Myanmar":{continent:"Southeast Asia",flag:"🇲🇲",color:"#e65100",iso:"MMR",offers:["Low-cost manufacturing","Natural resource wealth","Strategic China border","Jade & gemstones","Agricultural land","Young workforce","BRI connected","China-Myanmar Economic Corridor","Untapped consumer market","Kyaukphyu port"],invest:["Manufacturing & garments","Agricultural processing","Energy projects","Logistics corridors","Resource extraction","Consumer goods","Infrastructure development","Tourism (when stable)"]},
+  "Cambodia":{continent:"Southeast Asia",flag:"🇰🇭",color:"#c62828",iso:"KHM",offers:["Lowest labour costs in ASEAN","US & EU duty-free access (EBA)","Chinese investment welcome","Growing garment industry","Angkor Wat tourism","Strategic Mekong location","Young population","Stable governance","Phnom Penh development","BRI member"],invest:["Garment manufacturing","Tourism infrastructure","SEZ industrial parks","Real estate","Agricultural processing","Energy projects","Consumer goods","Logistics centres"]},
+  "Laos":{continent:"Southeast Asia",flag:"🇱🇦",color:"#1b5e20",iso:"LAO",offers:["China-Laos Railway (BRI)","Mekong River hydropower","Strategic Indochina location","Mining resources","Agricultural land","Low costs","Tourism (Luang Prabang)","Chinese investment hub","Young population","Landlocked but connected"],invest:["Hydropower projects","Mining resources","Agricultural land","Railway logistics","Tourism development","SEZ factories","Consumer goods","Real estate"]},
+};
+
+const CONTINENT_COLORS = {
+  "Southeast Asia":"#0288d1","Europe":"#37474f","Africa":"#2e7d32","Middle East":"#f57f17",
+  "North America":"#1e88e5","South America":"#00897b","South Asia":"#c62828",
+  "Australia & Pacific":"#6a1b9a","East Asia":"#880e4f","Central Asia":"#e65100"
+};
+
+const ISO_TO_NAME = {};
+Object.entries(COUNTRY_DATA).forEach(([name,d])=>{ISO_TO_NAME[d.iso]=name;});
+
+let currentLang = 'en';
+let selectedCountry = null;
+let currentProjection = 'orthographic';
+let svg, g, projection, path, zoom;
+let isDragging = false;
+let lastX, lastY;
+let rotateX = 20, rotateY = -30;
+let autoRotate = true;
+let rotateTimer;
+
+const W = 680, H = 500;
+
+function getCountryColor(name) {
+  const d = COUNTRY_DATA[name];
+  if (!d) return "#1a3a4a";
+  if (name === selectedCountry) return "#48cae4";
+  return d.color || CONTINENT_COLORS[d.continent] || "#1a3a4a";
+}
+
+function initMap() {
+  const container = document.getElementById('map-svg');
+  svg = d3.select('#map-svg').attr('width', W).attr('height', H);
+  
+  const defs = svg.append('defs');
+  const oceanGrad = defs.append('radialGradient').attr('id','oceanGrad').attr('cx','40%').attr('cy','40%').attr('r','60%');
+  oceanGrad.append('stop').attr('offset','0%').attr('stop-color','#0277bd').attr('stop-opacity','0.9');
+  oceanGrad.append('stop').attr('offset','60%').attr('stop-color','#01579b').attr('stop-opacity','0.95');
+  oceanGrad.append('stop').attr('offset','100%').attr('stop-color','#003366').attr('stop-opacity','1');
+  
+  const flatGrad = defs.append('linearGradient').attr('id','flatGrad').attr('x1','0%').attr('y1','0%').attr('x2','0%').attr('y2','100%');
+  flatGrad.append('stop').attr('offset','0%').attr('stop-color','#012840');
+  flatGrad.append('stop').attr('offset','100%').attr('stop-color','#010f1a');
+
+  g = svg.append('g');
+  
+  setProjection('orthographic');
+  loadWorldData();
+  
+  // Mouse events for drag rotation
+  svg.on('mousedown', function(event) {
+    if (currentProjection !== 'orthographic') return;
+    isDragging = true;
+    autoRotate = false;
+    clearInterval(rotateTimer);
+    lastX = event.clientX;
+    lastY = event.clientY;
+    event.preventDefault();
+  });
+  
+  d3.select(window).on('mousemove.globe', function(event) {
+    if (!isDragging || currentProjection !== 'orthographic') return;
+    const dx = event.clientX - lastX;
+    const dy = event.clientY - lastY;
+    rotateY += dx * 0.4;
+    rotateX = Math.max(-60, Math.min(60, rotateX - dy * 0.4));
+    lastX = event.clientX;
+    lastY = event.clientY;
+    projection.rotate([rotateY, -rotateX, 0]);
+    updatePaths();
+  });
+  
+  d3.select(window).on('mouseup.globe', function() {
+    if (isDragging) {
+      isDragging = false;
+      setTimeout(() => { autoRotate = true; startAutoRotate(); }, 3000);
+    }
+  });
+  
+  // Touch events
+  svg.on('touchstart', function(event) {
+    if (currentProjection !== 'orthographic') return;
+    autoRotate = false;
+    clearInterval(rotateTimer);
+    const t = event.touches[0];
+    lastX = t.clientX; lastY = t.clientY;
+    isDragging = true;
+  });
+  svg.on('touchmove', function(event) {
+    if (!isDragging) return;
+    event.preventDefault();
+    const t = event.touches[0];
+    const dx = t.clientX - lastX, dy = t.clientY - lastY;
+    rotateY += dx * 0.4;
+    rotateX = Math.max(-60, Math.min(60, rotateX - dy * 0.4));
+    lastX = t.clientX; lastY = t.clientY;
+    projection.rotate([rotateY, -rotateX, 0]);
+    updatePaths();
+  });
+}
+
+function setProjection(type) {
+  currentProjection = type;
+  document.querySelectorAll('.proj-btn').forEach(b=>b.classList.remove('active'));
+  event && event.target && event.target.classList.add('active');
+  
+  clearInterval(rotateTimer);
+  autoRotate = false;
+  g && g.selectAll('*').remove();
+
+  if (type === 'orthographic') {
+    projection = d3.geoOrthographic().scale(220).translate([W/2, H/2]).clipAngle(90).rotate([rotateY, -rotateX, 0]);
+    document.getElementById('rotate-hint').textContent = '🖱 Drag to rotate globe · Click any country to explore';
+    autoRotate = true;
+  } else if (type === 'naturalEarth') {
+    projection = d3.geoNaturalEarth1().scale(115).translate([W/2, H/2]);
+    document.getElementById('rotate-hint').textContent = '🌍 Natural Earth projection · Click any country to explore';
+  } else if (type === 'mercator') {
+    projection = d3.geoMercator().scale(90).translate([W/2, H/1.5]);
+    document.getElementById('rotate-hint').textContent = '📍 Mercator projection · Click any country to explore';
+  }
+  
+  path = d3.geoPath().projection(projection);
+  if (window._worldData) renderMap(window._worldData);
+  if (autoRotate) startAutoRotate();
+  
+  // Update active button
+  const btns = document.querySelectorAll('.proj-btn');
+  const labels = ['orthographic','naturalEarth','mercator'];
+  btns.forEach((b,i)=>b.classList.toggle('active', labels[i]===type));
+}
+
+function startAutoRotate() {
+  clearInterval(rotateTimer);
+  if (!autoRotate || currentProjection !== 'orthographic') return;
+  rotateTimer = setInterval(() => {
+    if (!isDragging && autoRotate) {
+      rotateY += 0.15;
+      projection.rotate([rotateY, -rotateX, 0]);
+      updatePaths();
+    }
+  }, 30);
+}
+
+function updatePaths() {
+  g.selectAll('.country').attr('d', path);
+  g.selectAll('.graticule').attr('d', path);
+  g.select('.sphere').attr('d', path);
+}
+
+async function loadWorldData() {
+  try {
+    const response = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+    const world = await response.json();
+    window._worldData = world;
+    renderMap(world);
+    if (autoRotate) startAutoRotate();
+  } catch(e) {
+    // Fallback: show simple circles for known countries
+    document.getElementById('rotate-hint').textContent = 'Loading map data... Click countries from the list below';
+  }
+}
+
+function renderMap(world) {
+  g.selectAll('*').remove();
+  
+  if (currentProjection === 'orthographic') {
+    g.append('path').datum({type:'Sphere'}).attr('class','sphere').attr('d', path).style('fill','url(#oceanGrad)');
+  } else {
+    g.append('rect').attr('width',W).attr('height',H).style('fill','url(#flatGrad)');
+    g.append('path').datum({type:'Sphere'}).attr('d',path).style('fill','none').style('stroke','rgba(72,202,228,.3)').style('stroke-width','1');
+  }
+  
+  g.append('path').datum(d3.geoGraticule()()).attr('class','graticule graticule-line').attr('d',path);
+  
+  const countries = topojson.feature(world, world.objects.countries);
+  
+  // Country name lookup from numeric ISO
+  const numericToAlpha3 = {
+    '840':'USA','276':'DEU','380':'ITA','250':'FRA','826':'GBR','752':'SWE','724':'ESP',
+    '616':'POL','642':'ROU','348':'HUN','528':'NLD','56':'BEL','703':'SVK','040':'AUT',
+    '756':'CHE','300':'GRC','620':'PRT','208':'DNK','246':'FIN','578':'NOR','372':'IRL',
+    '191':'HRV','705':'SVN','100':'BGR','807':'MKD','688':'SRB','070':'BIH','499':'MNE',
+    '8':'ALB','705':'SVN','440':'LTU','428':'LVA','233':'EST','112':'BLR','804':'UKR',
+    '498':'MDA','705':'SVN','792':'TUR','356':'IND','392':'JPN','410':'KOR','156':'CHN',
+    '643':'RUS','702':'SGP','764':'THA','458':'MYS','360':'IDN','704':'VNM','608':'PHL',
+    '116':'KHM','418':'LAO','104':'MMR','50':'BGD','144':'LKA','586':'PAK','524':'NPL',
+    '036':'AUS','554':'NZL','076':'BRA','152':'CHL','032':'ARG','604':'PER','170':'COL',
+    '858':'URY','600':'PRY','218':'ECU','068':'BOL','862':'VEN','124':'CAN','484':'MEX',
+    '818':'EGY','566':'NGA','710':'ZAF','404':'KEN','231':'ETH','012':'DZA','788':'TUN',
+    '504':'MAR','024':'AGO','508':'MOZ','834':'TZA','800':'UGA','646':'RWA','716':'ZWE',
+    '516':'NAM','072':'BWA','426':'LSO','748':'SWZ','450':'MDG','706':'SOM','262':'DJI',
+    '232':'ERI','408':'PRK','682':'SAU','784':'ARE','634':'QAT','414':'KWT','048':'BHR',
+    '512':'OMN','887':'YEM','368':'IRQ','364':'IRN','760':'SYR','422':'LBN','400':'JOR',
+    '275':'PSE','376':'ISR','792':'TUR','398':'KAZ','795':'TKM','860':'UZB','417':'KGZ',
+    '762':'TJK','004':'AFG','694':'SLB','288':'GHA','384':'CIV','430':'LBR','694':'SLE',
+    '324':'GIN','624':'GNB','686':'SEN','466':'MLI','562':'NER','854':'BFA','768':'TGO',
+    '204':'BEN','120':'CMR','140':'CAF','748':'SWZ','180':'COD','178':'COG','266':'GAB',
+    '226':'GNQ','690':'SYC','174':'COM','175':'MYT','638':'REU','496':'MNG','064':'BTN',
+    '462':'MDV','090':'SLB','598':'PNG','242':'FJI','548':'VUT','882':'WSM','776':'TON',
+  };
+
+  g.selectAll('.country')
+    .data(countries.features)
+    .enter().append('path')
+    .attr('class','country')
+    .attr('d', path)
+    .style('fill', d => {
+      const numId = String(d.id).padStart(3,'0');
+      const alpha3 = numericToAlpha3[String(d.id)] || numericToAlpha3[numId];
+      const name = alpha3 ? ISO_TO_NAME[alpha3] : null;
+      if (name && name === selectedCountry) return '#48cae4';
+      if (name && COUNTRY_DATA[name]) return COUNTRY_DATA[name].color || '#1a4a3a';
+      return '#1a3a4a';
+    })
+    .style('opacity', d => {
+      const alpha3 = numericToAlpha3[String(d.id)];
+      const name = alpha3 ? ISO_TO_NAME[alpha3] : null;
+      return (name && COUNTRY_DATA[name]) ? 1 : 0.6;
+    })
+    .on('mouseover', function(event, d) {
+      const alpha3 = numericToAlpha3[String(d.id)];
+      const name = alpha3 ? ISO_TO_NAME[alpha3] : null;
+      if (name) {
+        const data = COUNTRY_DATA[name];
+        const tip = document.getElementById('tooltip');
+        tip.style.display = 'block';
+        tip.innerHTML = `${data?.flag||''} <strong>${name}</strong>${data?` · ${data.continent}`:''}`;
+        d3.select(this).style('stroke','#48cae4').style('stroke-width','1.5');
+      }
+    })
+    .on('mousemove', function(event) {
+      const tip = document.getElementById('tooltip');
+      tip.style.left = (event.clientX+12)+'px';
+      tip.style.top = (event.clientY-28)+'px';
+    })
+    .on('mouseout', function(event, d) {
+      document.getElementById('tooltip').style.display='none';
+      const alpha3 = numericToAlpha3[String(d.id)];
+      const name = alpha3 ? ISO_TO_NAME[alpha3] : null;
+      if (!name || name !== selectedCountry) {
+        d3.select(this).style('stroke','rgba(72,202,228,.25)').style('stroke-width','.4');
+      }
+    })
+    .on('click', function(event, d) {
+      const alpha3 = numericToAlpha3[String(d.id)];
+      const name = alpha3 ? ISO_TO_NAME[alpha3] : null;
+      if (name && COUNTRY_DATA[name]) {
+        selectCountry(name);
+        autoRotate = false;
+        clearInterval(rotateTimer);
+        // Center on country in orthographic
+        if (currentProjection === 'orthographic') {
+          const centroid = d3.geoCentroid(d);
+          rotateY = -centroid[0];
+          rotateX = centroid[1];
+          projection.rotate([rotateY, -rotateX, 0]);
+          updatePaths();
+        }
+      }
+    });
+  
+  // Add dots for data-rich countries
+  if (currentProjection === 'orthographic') {
+    Object.entries(COUNTRY_DATA).forEach(([name, data]) => {});
+  }
+}
+
+function selectCountry(name) {
+  selectedCountry = name;
+  const data = COUNTRY_DATA[name];
+  if (!data) return;
+  
+  // Update chips
+  document.querySelectorAll('.country-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.country === name);
+  });
+  
+  // Update map colors
+  if (window._worldData) {
+    g.selectAll('.country').style('fill', d => {
+      const numericToAlpha3 = {
+        '840':'USA','276':'DEU','380':'ITA','250':'FRA','826':'GBR','752':'SWE','724':'ESP',
+        '616':'POL','642':'ROU','348':'HUN','528':'NLD','56':'BEL','703':'SVK','040':'AUT',
+        '756':'CHE','300':'GRC','620':'PRT','208':'DNK','246':'FIN','578':'NOR','372':'IRL',
+        '191':'HRV','705':'SVN','100':'BGR','807':'MKD','688':'SRB','070':'BIH','499':'MNE',
+        '8':'ALB','440':'LTU','428':'LVA','233':'EST','112':'BLR','804':'UKR','498':'MDA',
+        '792':'TUR','356':'IND','392':'JPN','410':'KOR','156':'CHN','643':'RUS','702':'SGP',
+        '764':'THA','458':'MYS','360':'IDN','704':'VNM','608':'PHL','116':'KHM','418':'LAO',
+        '104':'MMR','50':'BGD','144':'LKA','586':'PAK','524':'NPL','036':'AUS','554':'NZL',
+        '076':'BRA','152':'CHL','032':'ARG','604':'PER','170':'COL','858':'URY','600':'PRY',
+        '218':'ECU','068':'BOL','862':'VEN','124':'CAN','484':'MEX','818':'EGY','566':'NGA',
+        '710':'ZAF','404':'KEN','231':'ETH','012':'DZA','788':'TUN','504':'MAR','024':'AGO',
+        '508':'MOZ','834':'TZA','800':'UGA','646':'RWA','716':'ZWE','516':'NAM','072':'BWA',
+        '706':'SOM','262':'DJI','232':'ERI','682':'SAU','784':'ARE','634':'QAT','414':'KWT',
+        '048':'BHR','512':'OMN','887':'YEM','368':'IRQ','364':'IRN','760':'SYR','422':'LBN',
+        '400':'JOR','376':'ISR','398':'KAZ','860':'UZB','417':'KGZ','762':'TJK','004':'AFG',
+        '288':'GHA','384':'CIV','686':'SEN','466':'MLI','562':'NER','854':'BFA','768':'TGO',
+        '204':'BEN','120':'CMR','140':'CAF','180':'COD','178':'COG','266':'GAB','226':'GNQ',
+        '496':'MNG','064':'BTN','630':'PRI',
+      };
+      const alpha3 = numericToAlpha3[String(d.id)];
+      const cname = alpha3 ? ISO_TO_NAME[alpha3] : null;
+      if (cname === name) return '#48cae4';
+      if (cname && COUNTRY_DATA[cname]) return COUNTRY_DATA[cname].color || '#1a4a3a';
+      return '#1a3a4a';
+    });
+  }
+  
+  // Show detail panel
+  document.getElementById('empty-state').style.display = 'none';
+  const detail = document.getElementById('country-detail');
+  detail.style.display = 'block';
+  
+  const contColor = CONTINENT_COLORS[data.continent] || '#0288d1';
+  detail.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <span style="font-size:36px">${data.flag}</span>
+      <div>
+        <h3 style="font-size:22px;font-weight:700;color:#48cae4;font-family:'Playfair Display',serif;margin-bottom:4px">${name}</h3>
+        <span class="continent-badge" style="background:${contColor}33;border:1px solid ${contColor}66;color:white;letter-spacing:.5px">${data.continent}</span>
+      </div>
+    </div>
+    <div style="margin-bottom:14px">
+      <p class="section-label-sm">✓ What This Country Offers</p>
+      <div class="offers-list">
+        ${(data.offers||[]).map(o=>`<span class="tag tag-blue">✓ ${o}</span>`).join('')}
+      </div>
+    </div>
+    <div style="margin-bottom:14px">
+      <p class="section-label-gold">💡 Investment Opportunities</p>
+      <div class="invest-list">
+        ${(data.invest||[]).map(o=>`<span class="tag tag-gold">💡 ${o}</span>`).join('')}
+      </div>
+    </div>
+    <button class="btn-ai" onclick="askAI('${name}')">
+      🤖 Ask AI about investing in ${name} →
+    </button>
+  `;
+}
+
+function askAI(country) {
+  // Post message to parent if embedded, otherwise open chat
+  window.parent && window.parent.postMessage({type:'openChat',country}, '*');
+  alert(`Opening AI advisor for ${country}...\n\nIn the full platform, this would open the AI chat with "${country}" pre-filled.`);
+}
+
+function filterCountries(val) {
+  const chips = document.querySelectorAll('.country-chip');
+  chips.forEach(c => {
+    c.style.display = c.dataset.country.toLowerCase().includes(val.toLowerCase()) ? '' : 'none';
+  });
+}
+
+function buildCountryList() {
+  const list = document.getElementById('country-list');
+  const continents = {};
+  Object.entries(COUNTRY_DATA).forEach(([name,d]) => {
+    if (!continents[d.continent]) continents[d.continent] = [];
+    continents[d.continent].push(name);
+  });
+  
+  Object.entries(continents).sort().forEach(([cont, names]) => {
+    names.sort().forEach(name => {
+      const d = COUNTRY_DATA[name];
+      const chip = document.createElement('button');
+      chip.className = 'country-chip';
+      chip.dataset.country = name;
+      chip.textContent = `${d.flag} ${name}`;
+      chip.onclick = () => selectCountry(name);
+      list.appendChild(chip);
+    });
+  });
+}
+
+window.setProjection = setProjection;
+window.askAI = askAI;
+window.filterCountries = filterCountries;
+
+initMap();
+buildCountryList();
+</script>
+</body>
+</html>
